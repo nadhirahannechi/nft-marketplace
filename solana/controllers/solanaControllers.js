@@ -1,4 +1,3 @@
-const User = require("../models/user");
 const shortId = require("shortid");
 const jwt = require("jsonwebtoken");
 const expressJwt = require("express-jwt");
@@ -14,12 +13,12 @@ const {parse, stringify, toJSON, fromJSON} = require('flatted');
 const { token } = require("morgan");
 
 let KEYPAIR_PATH = path.resolve(__dirname, './keypair.json');
-let connection, payer;
+let connection, spl_Token;
 // let deployedProgramId = 'JBfHhrGguwdaemUzDsYHdPCqc3ugsMY7goqCKGzifkKU'
 // let deployedProgramId = '35AVt1QbDfFTP3xWkMo3QhdJSvbBL31rnCyGXN2g76VA'
-let deployedProgramId = 'BP6iWVRjPhqf2LyJJvV3wUDLMMuaHpQfRFBsSx8FAcUp'
+// let deployedProgramId = 'BP6iWVRjPhqf2LyJJvV3wUDLMMuaHpQfRFBsSx8FAcUp'
 
-// let deployedProgramId = splToken.TOKEN_PROGRAM_ID.toBase58();
+let deployedProgramId = splToken.TOKEN_PROGRAM_ID.toBase58();
 
 let Metadata  = class {
   TokenID = '';
@@ -319,23 +318,23 @@ let getOrCreateAssociatedAccountInfo = async (
   
   ) => {
 
-    // const associatedAddress = await getAssociatedTokenAddress(
-    //   splToken.associatedProgramId,
-    //   programId,
-    //   token,
-    //   owner,
-    // );
-    // console.log('associatedAddress in function ',associatedAddress.toBase58());
-    
-    await createAssociatedTokenAccountInternal(
+    const associatedAddress = await getAssociatedTokenAddress(
+      splToken.associatedProgramId,
+      programId,
+      token.publicKey,
       owner,
-      associatedAddress,
     );
+    console.log('associatedAddress in function ',associatedAddress.toBase58());
+    
+    // await createAssociatedTokenAccountInternal(
+    //   owner,
+    //   associatedAddress,
+    // );
 
     return associatedAddress;
 }
 
-exports.mintByMyContract0 = async (req, res) => {
+exports.createMint = async (req, res) => {
 
   console.log('KEYPAIR_PATH', KEYPAIR_PATH);
 try {
@@ -348,7 +347,6 @@ try {
 
   const mintAccount = web3.Keypair.generate();
   let marketplaceWallet = await createKeypairFromFile(KEYPAIR_PATH);
-  let myProgramId = new web3.PublicKey(deployedProgramId);
 
   const balanceNeeded = await splToken.Token.getMinBalanceRentForExemptMint(
     connection,
@@ -359,24 +357,17 @@ try {
 
 
   // let tokenPK = await web3.publicKey.generate();
-  let programId = splToken.TOKEN_PROGRAM_ID;
-  let myToken = new splToken.Token(
-    connection ,
-    mintAccount.publicKey,
-    myProgramId,
-    marketplaceWallet
-  )
-
-
+  let myProgramId = splToken.TOKEN_PROGRAM_ID;
   const transaction = new web3.Transaction();
+
 
   transaction.add(
     web3.SystemProgram.createAccount({
-      fromPubkey: marketplaceWallet.publicKey,
+      fromPubkey: userWalletPK,
       newAccountPubkey: mintAccount.publicKey,
       lamports: balanceNeeded,
       space: splToken.MintLayout.span,
-      programId:myProgramId,
+      programId: myProgramId,
     }),
   );
 
@@ -385,111 +376,59 @@ try {
       myProgramId,
       mintAccount.publicKey,
       0,
-      marketplaceWallet.publicKey,
-      marketplaceWallet.publicKey,
+      userWalletPK,
+      userWalletPK,
     ),
   );
 
-// let tokenAssocietedAccount = web3.Keypair.fromSeed(mintAccount.publicKey.toBytes()); 
-// let tokenAssocietedAccount = web3.Keypair.generate(); 
+  transaction.feePayer = userWalletPK;
+    transaction.recentBlockhash = (
+      await connection.getRecentBlockhash()
+    ).blockhash;
 
-  // transaction.add(
-  //   splToken.Token.createInitAccountInstruction(
-  //     myProgramId,
-  //     myToken.publicKey,
-  //     mintAccount.publicKey,
-  //     marketplaceWallet.publicKey,
-  //   ),
-  // );
-
-  // transaction.add(
-  //   splToken.Token.createAssociatedTokenAccountInstruction(
-  //     splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
-  //     myProgramId,
-  //     myToken.publicKey,
-  //     tokenAssocietedAccount.publicKey,
-  //     marketplaceWallet.publicKey,
-  //     marketplaceWallet.publicKey,
-  //   ),
-  // );
-
-  // let fromTokenAccount = await myToken.createAssociatedTokenAccount(
-  //   marketplaceWallet.publicKey,
-  // );
+  transaction.sign(mintAccount);
 
 
-  // console.log('fromTokenAccount', fromTokenAccount.toBase58());
-  // transaction.add(
-  //   splToken.Token.createMintToInstruction(
-  //     myProgramId,
-  //     myToken.publicKey,
-  //     fromTokenAccount.address,
-  //     // marketplaceWallet.publicKey,
-  //     marketplaceWallet.publicKey,
-  //     [],
-  //     1,
-  //   )
-  //   )
-    console.log('token',myToken.publicKey.toBase58());
+  let transaction2 = new web3.Transaction();
 
-  let signature = await web3.sendAndConfirmTransaction(
-    
-    connection,
-    transaction,
-    [marketplaceWallet, mintAccount],
-    {skipPreflight: false,}
+  let tokenAssocietedAccount = await splToken.Token.getAssociatedTokenAddress(
+    splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+    splToken.TOKEN_PROGRAM_ID,
+    mintAccount.publicKey,
+    userWalletPK
   );
 
-  const transaction2 = new web3.Transaction();
-
-
-
-
-  // let fromTokenAccount = await getOrCreateAssociatedAccountInfo(
-  //   marketplaceWallet.publicKey,
-  //   myToken,
-  //   myProgramId,
-
-  // );
-  
-
-  
-let fromTokenAccount = await myToken.getOrCreateAssociatedAccountInfo(
-  marketplaceWallet.publicKey,
-)
-
-
   transaction2.add(
-    splToken.Token.createMintToInstruction(
-      myProgramId,
-      myToken.publicKey,
-      fromTokenAccount.address,
-      marketplaceWallet.publicKey,
-      [],
-      1,
-    )
-    )
-//     console.log('token',myToken.publicKey);
-    let signature2 = await web3.sendAndConfirmTransaction(
-      connection,
-      transaction2,
-      [marketplaceWallet],
-      {skipPreflight: false,}
+    splToken.Token.createAssociatedTokenAccountInstruction(
+      splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+      splToken.TOKEN_PROGRAM_ID,
+      mintAccount.publicKey,
+      tokenAssocietedAccount,
+      userWalletPK,
+      userWalletPK
+
+    ));
+
+    transaction2.add(
+      splToken.Token.createMintToInstruction(
+        myProgramId,
+        mintAccount.publicKey,
+        tokenAssocietedAccount,
+        userWalletPK,
+        [],
+        1,
+      )
     );
 
-  // web3.realSendAndConfirmTransaction(connection, transaction, signers, {
-  //   skipPreflight: false,
-  // });
+    transaction2.feePayer = userWalletPK;
+    transaction2.recentBlockhash = (
+      await connection.getRecentBlockhash()
+    ).blockhash;
 
-console.log('signature',signature);
-console.log('#'.repeat(12));
-console.log('signature2',signature2);
-console.log('#'.repeat(12));
-
-// console.log('token',myToken.publicKey.toBase58());
 
   res.json({
-    'transaction': transaction,
+    'transaction1': transaction,
+    // 'transaction2': transaction2,
     'token': myToken.publicKey.toBase58()
   });
 } catch (error) {
@@ -500,7 +439,114 @@ console.log('#'.repeat(12));
 }
 };
 
-exports.mintByMyContract = async (req, res) => {
+exports.createCustomMint = async (req, res) => {
+
+  console.log('KEYPAIR_PATH', KEYPAIR_PATH);
+try {
+  
+
+  let userWalletPK = new web3.PublicKey(req.body.walletPK);
+  let contractAdress = new web3.PublicKey(req.body.contractAdress);
+  // console.log('walletPK', walletPK);
+
+  await establishConnection();
+
+  const mintAccount = web3.Keypair.generate();
+  let marketplaceWallet = await createKeypairFromFile(KEYPAIR_PATH);
+
+  const balanceNeeded = await splToken.Token.getMinBalanceRentForExemptMint(
+    connection,
+  );
+  
+
+  //wait for airdrop confirmation
+
+
+  // let tokenPK = await web3.publicKey.generate();
+  let myProgramId = new web3.PublicKey(contractAdress);
+
+  const transaction = new web3.Transaction();
+
+
+  transaction.add(
+    web3.SystemProgram.createAccount({
+      fromPubkey: userWalletPK,
+      newAccountPubkey: mintAccount.publicKey,
+      lamports: balanceNeeded,
+      space: splToken.MintLayout.span,
+      programId: myProgramId,
+    }),
+  );
+
+  transaction.add(
+    splToken.Token.createInitMintInstruction(
+      myProgramId,
+      mintAccount.publicKey,
+      0,
+      userWalletPK,
+      userWalletPK,
+    ),
+  );
+
+  transaction.feePayer = userWalletPK;
+    transaction.recentBlockhash = (
+      await connection.getRecentBlockhash()
+    ).blockhash;
+
+  transaction.sign(mintAccount);
+
+
+  let transaction2 = new web3.Transaction();
+
+  let tokenAssocietedAccount = await splToken.Token.getAssociatedTokenAddress(
+    splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+    splToken.TOKEN_PROGRAM_ID,
+    mintAccount.publicKey,
+    userWalletPK
+  );
+
+  transaction2.add(
+    splToken.Token.createAssociatedTokenAccountInstruction(
+      splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+      splToken.TOKEN_PROGRAM_ID,
+      mintAccount.publicKey,
+      tokenAssocietedAccount,
+      userWalletPK,
+      userWalletPK
+
+    ));
+
+    transaction2.add(
+      splToken.Token.createMintToInstruction(
+        myProgramId,
+        mintAccount.publicKey,
+        tokenAssocietedAccount,
+        userWalletPK,
+        [],
+        1,
+      )
+    );
+
+    transaction2.feePayer = userWalletPK;
+    transaction2.recentBlockhash = (
+      await connection.getRecentBlockhash()
+    ).blockhash;
+
+
+  res.json({
+    'transaction1': transaction,
+    // 'transaction2': transaction2,
+    'token': myToken.publicKey.toBase58()
+  });
+} catch (error) {
+  console.log(error);
+  res.json({
+    'error': error
+  })
+}
+};
+
+exports.mintByMyContract1 = async (req, res) => {
 
   console.log('KEYPAIR_PATH', KEYPAIR_PATH);
 try {
