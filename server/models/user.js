@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const userSchema = new mongoose.Schema(
   {
     name: {
-      type: String,
+   //   type: String,
       trim: true,
       required: true,
       max: 20,
