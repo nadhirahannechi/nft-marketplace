@@ -68,7 +68,26 @@ const Header = ({ history, signerAddress, contract_1155, contract_721, setContra
                 </Link>
               </NavItem>
             )}
+ <NavItem>
+          
+          <NavLink
+            style={{ cursor: "pointer" }}
+            onClick={() => history.push("/form")}
 
+           >
+           Create your NFT
+          </NavLink>
+      </NavItem>
+      <NavItem>
+    
+    <NavLink
+      style={{ cursor: "pointer" }}
+      onClick={() => history.push("/contract")}
+
+     >
+     External SC 
+     </NavLink>
+</NavItem>
 
             {isAuth() && isAuth().role === 1 && (
               <NavItem>

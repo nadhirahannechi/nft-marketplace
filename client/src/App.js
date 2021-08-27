@@ -9,6 +9,8 @@ import Protected from "./component/private/Protected";
 import Mint from "./pages/Mint";
 import { min } from 'lodash';
 import ExternelMint from './pages/ExternelMint';
+import  Form from "./pages/TronPages/Form.js";
+import  Contract from "./pages/TronPages/Contract";
 function App() {
   const [darkMode, setDarkMode] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -32,6 +34,8 @@ function App() {
           <Route path="/signin" component={Signin} exact />
           <Route path="/admin" component={HomeAdmin} exact />
           <Route path="/user" component={Solana} exact />
+          <Route path="/form" component={Form} exact />
+          <Route path="/contract" component={Contract} exact />
           <Route path="/polygon" exact   >
             <Mint         
           isMobile={isMobile}
